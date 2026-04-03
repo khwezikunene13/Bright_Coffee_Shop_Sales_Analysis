@@ -66,7 +66,7 @@ from brightcoffee_shop_sales;
 ----2. Feature Engineering 
 ------------------------------------------------------------------------------------------------------------
 
---How much revenue did we generate per day and how many sales per day --
+--2.1 How much revenue did we generate per day and how many sales per day --
 ------------------------------------------------------------------------------------
 select 
       transaction_date,
@@ -80,7 +80,7 @@ from bright_coffee_shop_analysis_case_study_1
 group by transaction_date;
 
 
---Include the purchase time (we will have to run our data per transaction again)--
+--2.2 Include the purchase time (we will have to run our data per transaction again)--
 ------------------------------------------------------------------------------------
 select transaction_date,
        dayname(transaction_date)AS day_name,
@@ -93,7 +93,8 @@ from bright_coffee_shop_analysis_case_study_1
 group by transaction_date,
          date_format(transaction_time, 'HH:mm:ss' );
 
---Okay, lets add our categorical columns and other columns we want, let me go step by step
+--2.3 Okay, lets add our categorical columns and other columns we want, let me go step by step
+--------------------------------------------------------------------------------------------
 select 
 ------Time related features and columns
       transaction_date,
@@ -108,16 +109,13 @@ select
       product_detail AS product_name,
 ------Revenue and quantity sold
       sum(transaction_qty*unit_price) AS revenue,
-      transaction_qty AS quantity_sold,
-      unit_price
+      sum(transaction_qty) AS quantity_sold
 from bright_coffee_shop_analysis_case_study_1
 group by transaction_date,
          date_format(transaction_time, 'HH:mm:ss'),
          store_location,
          product_category,
-         product_detail,
-         transaction_qty,
-         unit_price;
+         product_detail;
 
 --Lets Input the time segments (Yoh, Lord be with me!!!)----
 --okay but first, lets see what is earliest and latest time. To make proper segments
@@ -130,15 +128,17 @@ from bright_coffee_shop_analysis_case_study_1;
 select min(transaction_qty*unit_price) as lowest_spend,
         max(transaction_qty*unit_price) as Highest_spend
 from bright_coffee_shop_analysis_case_study_1;
+--most expensive product costs R0.80 and the most expensive costs R360.00
 
-
+-------------------------------------------------------------------------------------------------------------------------
+--Final Script 
+----------------------------------------------------------------------------------------------------------------------------
 select
 ------Time related features and columns
       transaction_date,
       dayname(transaction_date)AS day_name,
       monthname(transaction_date) AS month_name,
       dayofmonth(transaction_date) AS day_of_month,
-      date_format(transaction_time, 'HH:mm:ss' ) AS purchase_time,
 -----Daily Time segments
 case 
      when date_format(transaction_time, 'HH:mm:ss') between '06:00:00' and '10:29:59' then 'morning rush'
@@ -150,13 +150,14 @@ case
      end as time_segments,
 -----Weekend classification
 case 
-      when dayname(transaction_date) in ('sat','sun') then 'weekend'
+      when dayname(transaction_date) in ('Sat','Sun') then 'weekend'
       else 'weekday'
 end as day_classification,
 -------Categorical Columns
       store_location,
       product_category,
       product_detail AS product_name,
+      unit_price,
 ------Revenue and quantity sold
       sum(transaction_qty*unit_price) AS revenue,
 case
@@ -164,14 +165,29 @@ case
       when (transaction_qty*unit_price) between 51 and 100 then 'med spend'
       else 'high spend'
 end as spend_segment,
-      transaction_qty AS quantity_sold,
-      unit_price,
+      sum(transaction_qty) AS quantity_sold,
       count(distinct transaction_id) AS number_of_sales
 from bright_coffee_shop_analysis_case_study_1
 group by transaction_date,
-         date_format(transaction_time, 'HH:mm:ss' ),
          store_location,
          product_category,
          product_detail,
+         unit_price,
          transaction_qty,
-         unit_price;
+      case 
+            when date_format(transaction_time, 'HH:mm:ss') between '06:00:00' and '10:29:59' then 'morning rush'
+            when date_format(transaction_time, 'HH:mm:ss') between '10:30:00' and '11:59:59' then 'mid-morning'
+            when date_format(transaction_time, 'HH:mm:ss') between '12:00:00' and '14:29:59' then 'lunch time rush'
+            when date_format(transaction_time, 'HH:mm:ss') between '14:30:00' and '16:29:59' then 'Afternoon'
+            when date_format(transaction_time, 'HH:mm:ss') between '16:30:00' and '18:59:59' then 'Home Time'
+            when date_format(transaction_time, 'HH:mm:ss') >= '19:00:00' then 'evening'
+      end,
+      case 
+            when dayname(transaction_date) in ('Sat','Sun') then 'weekend'
+            else 'weekday'
+      end,
+      case
+            when (transaction_qty*unit_price) <=50 then 'low spend'
+            when (transaction_qty*unit_price) between 51 and 100 then 'med spend'
+            else 'high spend'
+      end;
